@@ -32,7 +32,7 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_LOG_DEFAULT_LEVEL);
 #define BUFFER_MAX_SIZE 6
 
 //#define pc_port  60000
-#define cam_port 60010 // use for either udp or tcp server
+#define socket_port 60010 // use for either udp or tcp server
 
 
 /**********External Resources START**************/
@@ -70,7 +70,7 @@ void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback)
 	}
 }
 
-uint8_t process_socket_rx_buffer(char *socket_rx_buf, char *command_buf)
+uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
 {
 	uint8_t command_length = 0;
 
@@ -105,7 +105,7 @@ static void trigger_socket_rx_callback_if_set()
 }
 
 
-void data_send(const void *buf, size_t len){
+void socket_tx(const void *buf, size_t len){
 		#if defined(CONFIG_SAMPLE_SCOKET_TCP)
 			if (send(tcp_server_socket, buf, len, 0) == -1) {
 				perror("Sending failed");
@@ -146,7 +146,7 @@ static void wifi_net_sockets(void)
 
 	cam_addr.sin_family = AF_INET;
 	cam_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	cam_addr.sin_port = htons(cam_port);
+	cam_addr.sin_port = htons(socket_port);
 
 	#if defined(CONFIG_SAMPLE_SCOKET_TCP)
 		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);

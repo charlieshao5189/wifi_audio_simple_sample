@@ -13,8 +13,8 @@ enum wifi_modes {
 typedef void (*net_util_socket_rx_callback_t)(uint8_t *data, uint16_t len);
 
 void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback);
-void cam_send(const void *buf, size_t len);
+void socket_tx(const void *buf, size_t len);
 
-uint8_t process_socket_rx_buffer(char *udp_rx_buf, char *command_buf);
+uint8_t process_socket_rx(char *udp_rx_buf, char *command_buf);
 
 #endif

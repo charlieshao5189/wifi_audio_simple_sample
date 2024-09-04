@@ -33,7 +33,7 @@ struct wifi_ap_sta_node {
 	bool valid;
 	struct wifi_ap_sta_info sta_info;
 };
-static struct wifi_ap_sta_node sta_list[CONFIG_SOFTAP_SAMPLE_MAX_STATIONS];
+static struct wifi_ap_sta_node sta_list[CONFIG_SOFTAP_MAX_STATIONS];
 bool dhcp_server_configured;
 
 static void wifi_ap_stations_unlocked(void)
@@ -43,7 +43,7 @@ static void wifi_ap_stations_unlocked(void)
 	LOG_INF("AP stations:");
 	LOG_INF("============");
 
-	for (int i = 0; i < CONFIG_SOFTAP_SAMPLE_MAX_STATIONS; i++) {
+	for (int i = 0; i < CONFIG_SOFTAP_MAX_STATIONS; i++) {
 		struct wifi_ap_sta_info *sta;
 		uint8_t mac_string_buf[sizeof("xx:xx:xx:xx:xx:xx")];
 
@@ -93,7 +93,7 @@ static void handle_wifi_ap_sta_connected(struct net_mgmt_event_callback *cb)
 				       mac_string_buf, sizeof(mac_string_buf)));
 
 	k_mutex_lock(&wifi_ap_sta_list_lock, K_FOREVER);
-	for (i = 0; i < CONFIG_SOFTAP_SAMPLE_MAX_STATIONS; i++) {
+	for (i = 0; i < CONFIG_SOFTAP_MAX_STATIONS; i++) {
 		if (!sta_list[i].valid) {
 			sta_list[i].sta_info = *sta_info;
 			sta_list[i].valid = true;
@@ -101,9 +101,9 @@ static void handle_wifi_ap_sta_connected(struct net_mgmt_event_callback *cb)
 		}
 	}
 
-	if (i == CONFIG_SOFTAP_SAMPLE_MAX_STATIONS) {
+	if (i == CONFIG_SOFTAP_MAX_STATIONS) {
 		LOG_ERR("No space to store station info: "
-			"Increase CONFIG_SOFTAP_SAMPLE_MAX_STATIONS");
+			"Increase CONFIG_SOFTAP_MAX_STATIONS");
 	}
 
 	wifi_ap_stations_unlocked();
@@ -126,7 +126,7 @@ static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
 				       mac_string_buf, sizeof(mac_string_buf)));
 
 	k_mutex_lock(&wifi_ap_sta_list_lock, K_FOREVER);
-	for (i = 0; i < CONFIG_SOFTAP_SAMPLE_MAX_STATIONS; i++) {
+	for (i = 0; i < CONFIG_SOFTAP_MAX_STATIONS; i++) {
 		if (!sta_list[i].valid) {
 			continue;
 		}
@@ -138,7 +138,7 @@ static void handle_wifi_ap_sta_disconnected(struct net_mgmt_event_callback *cb)
 		}
 	}
 
-	if (i == CONFIG_SOFTAP_SAMPLE_MAX_STATIONS) {
+	if (i == CONFIG_SOFTAP_MAX_STATIONS) {
 		LOG_WRN("No matching MAC address found in the list");
 	}
 
@@ -171,15 +171,15 @@ static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 
 static int __wifi_args_to_params(struct wifi_connect_req_params *params)
 {
-#ifdef CONFIG_SOFTAP_SAMPLE_2_4GHz
+#ifdef CONFIG_SOFTAP_2_4GHz
 	params->band = WIFI_FREQ_BAND_2_4_GHZ;
-#elif CONFIG_SOFTAP_SAMPLE_5GHz
+#elif CONFIG_SOFTAP_5GHz
 	params->band = WIFI_FREQ_BAND_5_GHZ;
 #endif
-	params->channel = CONFIG_SOFTAP_SAMPLE_CHANNEL;
+	params->channel = CONFIG_SOFTAP_CHANNEL;
 
 	/* SSID */
-	params->ssid = CONFIG_SOFTAP_SAMPLE_SSID;
+	params->ssid = CONFIG_SOFTAP_SSID;
 	params->ssid_length = strlen(params->ssid);
 	if (params->ssid_length > WIFI_SSID_MAX_LEN) {
 		LOG_ERR("SSID length is too long, expected is %d characters long",
@@ -187,18 +187,18 @@ static int __wifi_args_to_params(struct wifi_connect_req_params *params)
 		return -1;
 	}
 
-#if defined(CONFIG_SOFTAP_SAMPLE_KEY_MGMT_WPA2)
+#if defined(CONFIG_SOFTAP_KEY_MGMT_WPA2)
 	params->security = 1;
-#elif defined(CONFIG_SOFTAP_SAMPLE_KEY_MGMT_WPA2_256)
+#elif defined(CONFIG_SOFTAP_KEY_MGMT_WPA2_256)
 	params->security = 2;
-#elif defined(CONFIG_SOFTAP_SAMPLE_KEY_MGMT_WPA3)
+#elif defined(CONFIG_SOFTAP_KEY_MGMT_WPA3)
 	params->security = 3;
 #else
 	params->security = 0;
 #endif
 
-#if !defined(CONFIG_SOFTAP_SAMPLE_KEY_MGMT_NONE)
-	params->psk = CONFIG_SOFTAP_SAMPLE_PASSWORD;
+#if !defined(CONFIG_SOFTAP_KEY_MGMT_NONE)
+	params->psk = CONFIG_SOFTAP_PASSWORD;
 	params->psk_length = strlen(params->psk);
 #endif
 
@@ -294,7 +294,7 @@ static int wifi_set_reg_domain(void)
 	}
 
 	regd.oper = WIFI_MGMT_SET;
-	strncpy(regd.country_code, CONFIG_SOFTAP_SAMPLE_REG_DOMAIN,
+	strncpy(regd.country_code, CONFIG_SOFTAP_REG_DOMAIN,
 		(WIFI_COUNTRY_CODE_LEN + 1));
 
 	ret = net_mgmt(NET_REQUEST_WIFI_REG_DOMAIN, iface,
@@ -302,7 +302,7 @@ static int wifi_set_reg_domain(void)
 	if (ret) {
 		LOG_ERR("Cannot %s Regulatory domain: %d", "SET", ret);
 	} else {
-		LOG_INF("Regulatory domain set to %s", CONFIG_SOFTAP_SAMPLE_REG_DOMAIN);
+		LOG_INF("Regulatory domain set to %s", CONFIG_SOFTAP_REG_DOMAIN);
 	}
 
 	return ret;
@@ -320,8 +320,8 @@ static int configure_dhcp_server(void)
 		goto out;
 	}
 
-	if (net_addr_pton(AF_INET, CONFIG_SOFTAP_SAMPLE_DHCPV4_POOL_START, &pool_start.s_addr)) {
-		LOG_ERR("Invalid address: %s", CONFIG_SOFTAP_SAMPLE_DHCPV4_POOL_START);
+	if (net_addr_pton(AF_INET, CONFIG_SOFTAP_DHCPV4_POOL_START, &pool_start.s_addr)) {
+		LOG_ERR("Invalid address: %s", CONFIG_SOFTAP_DHCPV4_POOL_START);
 		goto out;
 	}
 
@@ -334,7 +334,7 @@ static int configure_dhcp_server(void)
 	} else {
 		dhcp_server_configured = true;
 		LOG_INF("DHCPv4 server started and pool address starts from %s",
-			CONFIG_SOFTAP_SAMPLE_DHCPV4_POOL_START);
+			CONFIG_SOFTAP_DHCPV4_POOL_START);
 	}
 out:
 	return ret;
@@ -390,7 +390,7 @@ static int stop_dhcp_server(void)
 
 static void start_wifi_thread(void);
 #define THREAD_PRIORITY K_PRIO_COOP(CONFIG_NUM_COOP_PRIORITIES - 1)
-K_THREAD_DEFINE(start_wifi_ap_thread_id, CONFIG_SOFTAP_SAMPLE_START_WIFI_THREAD_STACK_SIZE,
+K_THREAD_DEFINE(start_wifi_ap_thread_id, CONFIG_SOFTAP_START_WIFI_THREAD_STACK_SIZE,
 		start_wifi_thread, NULL, NULL, NULL,
 		THREAD_PRIORITY, 0, -1);
 
