@@ -25,3 +25,4 @@ tags
 .vscode
 sanity-out*
 twister-out*
+.DS_Store
