@@ -66,7 +66,6 @@ void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback)
 	uint8_t buf[6];
 	while (k_msgq_get(&socket_recv_queue, buf, K_NO_WAIT) == 0) {
 		socket_rx_cb(buf, 6);
-		LOG_HEXDUMP_INF(buf, 6, "socket_rx_cb");
 	}
 }
 
@@ -97,6 +96,7 @@ uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
 
 static void trigger_socket_rx_callback_if_set()
 {
+        LOG_HEXDUMP_INF(socket_recv_buf, 6, "socket_rx_cb");
 	if (socket_rx_cb != 0) {
 		socket_rx_cb(socket_recv_buf, 6);
 	} else {
