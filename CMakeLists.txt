@@ -11,12 +11,14 @@ project(nrf_wifi_audio_player)
 
 FILE(GLOB app_sources src/*.c)
 
+
+message("show app_sources::")
 message("${app_sources}")
 
 if (CONFIG_NRF700X_AP_MODE)
-        list(REMOVE_ITEM app_sources "/opt/nordic/ncs/myapps/wifi_audio_simple_sample/src/wifi_station_mode.c")
+        list(FILTER app_sources EXCLUDE REGEX ".*wifi_station_mode\\.c$")
 else()
-        1list(REMOVE_ITEM app_sources "/opt/nordic/ncs/myapps/wifi_audio_simple_sample/src/wifi_softap_mode.c")
+        list(FILTER app_sources EXCLUDE REGEX ".*wifi_softap_mode\\.c$")
 endif()
 
 target_sources(app PRIVATE ${app_sources})
