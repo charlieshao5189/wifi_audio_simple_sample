@@ -13,8 +13,18 @@ enum wifi_modes {
 typedef void (*net_util_socket_rx_callback_t)(uint8_t *data, uint16_t len);
 
 void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback);
-void socket_tx(const void *buf, size_t len);
+void data_send(const void *buf, size_t len);
 
-uint8_t process_socket_rx(char *udp_rx_buf, char *command_buf);
+uint8_t process_socket_rx_buffer(char *udp_rx_buf, char *command_buf);
+
+/* Same as COMMAND_MAX_SIZE*/
+#define BUFFER_MAX_SIZE 1508
+
+typedef struct {
+    uint8_t buf[BUFFER_MAX_SIZE];
+    uint32_t len;
+} socket_receive_t;
+
+extern struct k_msgq socket_recv_queue;
 
 #endif

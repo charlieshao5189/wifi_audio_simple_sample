@@ -10,6 +10,12 @@ menu "Nordic WiFi Auido Player"
 
 if NRF700X_AP_MODE
 
+config SAMPLE_SOCKET_TCP
+	bool "Use TCP sockets"
+	default n
+	help
+	  Enable this to use TCP instead of UDP for sockets.
+
 config SOFTAP_DHCPV4_SERVER
 	bool "DHCPv4 server"
 	select NET_DHCPV4_SERVER

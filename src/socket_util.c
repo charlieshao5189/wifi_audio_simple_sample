@@ -28,8 +28,7 @@ LOG_MODULE_REGISTER(socket_util, CONFIG_LOG_DEFAULT_LEVEL);
 #define STACKSIZE 8192
 /* scheduling priority used by each thread */
 #define PRIORITY 3
-/* Same as COMMAND_MAX_SIZE*/
-#define BUFFER_MAX_SIZE 6
+
 
 //#define pc_port  60000
 #define socket_port 60010 // use for either udp or tcp server
@@ -54,22 +53,26 @@ socklen_t pc_addr_len=sizeof(pc_addr);
 struct k_sem wifi_net_ready;
 enum wifi_modes wifi_mode=WIFI_STATION_MODE;
 
-uint8_t socket_recv_buf[BUFFER_MAX_SIZE];
-K_MSGQ_DEFINE(socket_recv_queue, sizeof(socket_recv_buf), 1, 4);
+
+
+static socket_receive_t socket_receive;
+
+K_MSGQ_DEFINE(socket_recv_queue, sizeof(socket_receive), 1, 4);
 
 static net_util_socket_rx_callback_t socket_rx_cb = 0; 
 
 void net_util_set_callback(net_util_socket_rx_callback_t socket_rx_callback)
 {
 	socket_rx_cb = socket_rx_callback;
+
 	// If any messages are waiting in the queue, forward them immediately
-	uint8_t buf[6];
-	while (k_msgq_get(&socket_recv_queue, buf, K_NO_WAIT) == 0) {
-		socket_rx_cb(buf, 6);
+	socket_receive_t socket_receive;
+	while (k_msgq_get(&socket_recv_queue, &socket_receive, K_NO_WAIT) == 0) {
+		socket_rx_cb(socket_receive.buf, socket_receive.len);
 	}
 }
 
-uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
+uint8_t process_socket_rx_buffer(char *socket_rx_buf, char *command_buf)
 {
 	uint8_t command_length = 0;
 
@@ -96,17 +99,16 @@ uint8_t process_socket_rx(char *socket_rx_buf, char *command_buf)
 
 static void trigger_socket_rx_callback_if_set()
 {
-        LOG_HEXDUMP_INF(socket_recv_buf, 6, "socket_rx_cb");
 	if (socket_rx_cb != 0) {
-		socket_rx_cb(socket_recv_buf, 6);
+		socket_rx_cb(socket_receive.buf, socket_receive.len);
 	} else {
-		k_msgq_put(&socket_recv_queue, &socket_recv_buf, K_NO_WAIT);
+		k_msgq_put(&socket_recv_queue, &socket_receive, K_NO_WAIT);
 	}
 }
 
 
-void socket_tx(const void *buf, size_t len){
-		#if defined(CONFIG_SAMPLE_SCOKET_TCP)
+void data_send(const void *buf, size_t len){
+		#if defined(CONFIG_SAMPLE_SOCKET_TCP)
 			if (send(tcp_server_socket, buf, len, 0) == -1) {
 				perror("Sending failed");
 				close(tcp_server_socket);
@@ -122,7 +124,6 @@ void socket_tx(const void *buf, size_t len){
 static void wifi_net_sockets(void)
 {
 	int ret;
-	ssize_t bytes_recived;
 
 	k_sem_init(&wifi_net_ready, 0, 1);
 
@@ -148,7 +149,7 @@ static void wifi_net_sockets(void)
 	cam_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	cam_addr.sin_port = htons(socket_port);
 
-	#if defined(CONFIG_SAMPLE_SCOKET_TCP)
+	#if defined(CONFIG_SAMPLE_SOCKET_TCP)
 		tcp_server_listen_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		
 		if (tcp_server_listen_fd < 0)
@@ -186,12 +187,13 @@ static void wifi_net_sockets(void)
 			inet_ntop(pc_addr.sin_family, &pc_addr.sin_addr, pc_addr_str, sizeof(pc_addr_str));
 			LOG_INF("Connect with PC through WiFi, PC IPAddr = %s, Port = %d\n", pc_addr_str, ntohs(pc_addr.sin_port));
 			// Handle the client connection
-			while((bytes_recived = recv(tcp_server_socket, socket_recv_buf, sizeof(socket_recv_buf),0))>0){
-				trigger_socket_rx_callback_if_set(socket_recv_buf);
+			while((socket_receive.len = recv(tcp_server_socket, socket_receive.buf, BUFFER_MAX_SIZE,0))>0){
+				k_msgq_put(&socket_recv_queue, &socket_receive, K_FOREVER);
+                //trigger_socket_rx_callback_if_set();
 			}
-			if (bytes_recived == -1) {
+			if (socket_receive.len == -1) {
 				LOG_ERR("Receiving failed");
-			} else if (bytes_recived == 0) {
+			} else if (socket_receive.len == 0) {
 				LOG_INF("Client disconnected.\n");
 			}
 			close(tcp_server_socket);
@@ -213,17 +215,18 @@ static void wifi_net_sockets(void)
 			FATAL_ERROR();
 			return;
 		}
-		while((bytes_recived = recvfrom(udp_socket, socket_recv_buf, sizeof(socket_recv_buf), 0, (struct sockaddr *)&pc_addr, &pc_addr_len))>0){
+		while((socket_receive.len = recvfrom(udp_socket, socket_receive.buf, BUFFER_MAX_SIZE, 0, (struct sockaddr *)&pc_addr, &pc_addr_len))>0){
 			if(socket_connected == false){
 				inet_ntop(pc_addr.sin_family, &pc_addr.sin_addr, pc_addr_str, sizeof(pc_addr_str));
 				LOG_INF("Connect with PC through WiFi, PC IPAddr = %s, Port = %d\n", pc_addr_str, ntohs(pc_addr.sin_port));
 				socket_connected=true;
 			}
-			trigger_socket_rx_callback_if_set(socket_recv_buf);
+            LOG_INF("Received %d bytes", socket_receive.len);
+			trigger_socket_rx_callback_if_set();
 		}
-		if (bytes_recived == -1) {
+		if (socket_receive.len == -1) {
 			LOG_ERR("Receiving failed");
-		} else if (bytes_recived == 0) {
+		} else if (socket_receive.len == 0) {
 			LOG_INF("Client disconnected.\n");
 		}
 
